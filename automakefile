@@ -1,0 +1,182 @@
+##
+## EPITECH PROJECT, 2020
+## SYN_automakefile_2019
+## File description:
+## automakefile
+##
+
+#!/bin/bash
+
+if [ ! -z $2 ]
+then
+    exit 84
+fi
+if [ -z $1 ]
+then
+    exit 84
+fi
+if [ ! -f $1 ]
+then
+    exit 84
+fi
+
+# args gathering
+
+dep=$(cat $1 | grep -F ".c")
+if [[ -z $dep ]]
+then
+    exit 84
+fi
+source=$(cat $1 | sed -e "s/;/\n/g" | grep -F ".c")
+PROJECT_DIR=$(cat $1 | grep "PROJECT_DIR;" | cut -d';' -f 2)
+if [[ -z $PROJECT_DIR ]]
+then
+    exit 84
+fi
+SOURCE=$(cat $1 | grep "SOURCES_DIR;" | cut -d';' -f 2)
+i=1
+while [ true ]
+do
+    if [[ -z $(echo $source | awk -v var=$i '{print $var}') ]]
+    then
+        break
+    fi
+    if [[ -z $SOURCE ]]
+    then
+        if [[ ! -f $(echo -e $(echo $PROJECT_DIR/$(echo $source | awk -v var=$i '{print $var}'))) ]]
+        then
+            exit 84
+        fi
+    else
+        if [[ ! -f $(echo $PROJECT_DIR/$SOURCE/$(echo $source | awk -v var=$i '{print $var}')) ]]
+        then
+            exit 84
+        fi
+    fi
+    let "i+=1"
+done
+HEADER=$(cat $1 | grep "HEADERS_DIR;" | cut -d';' -f 2)
+LIBS=$(cat $1 | grep "LIBS_DIR;" | cut -d';' -f 2)
+EXEC=$(cat $1 | grep "EXEC;" | cut -d';' -f 2)
+if [[ -z $EXEC ]]
+then
+    EXEC=$(echo -e a.out)
+fi
+CC=$(cat $1 | grep "CC;" | cut -d';' -f 2)
+if [[ -z $CC ]]
+then
+    CC=$(echo -e gcc)
+fi
+CFLAGS=$(cat $1 | grep "CFLAGS;" | cut -d';' -f 2)
+LDFLAGS=$(cat $1 | grep "LDFLAGS;" | cut -d';' -f 2)
+BACKUP=$(cat $1 | grep "BCK_DIR;" | cut -d';' -f 2)
+ZIP=$(cat $1 | grep ^"ZIP;" | cut -d';' -f 2)
+ZIP_FLAGS=$(cat $1 | grep ^"ZIPFLAGS;" | cut -d';' -f 2)
+UNZIP=$(cat $1 | grep ^"UNZIP;" | cut -d';' -f 2)
+UNZIP_FLAGS=$(cat $1 | grep ^"UNZIPFLAGS;" | cut -d';' -f 2)
+
+if [ ! -d $PROJECT_DIR/$backup ]
+then
+    mkdir -p $PROJECT_DIR/$backup_folder
+fi
+echo "1" > $PROJECT_DIR/.version
+
+if [ -f $PROJECT_DIR/Makefile ]
+then
+    cat /dev/null > $PROJECT_DIR/Makefile
+else
+    touch $PROJECT_DIR/Makefile
+fi
+
+# Makefile and Epitech header generation:
+
+YEAR=$(date +%Y)
+echo -e "##" >> $PROJECT_DIR/Makefile
+echo -e "## EPITECH PROJECT, $YEAR" >> $PROJECT_DIR/Makefile
+echo -e "## $EXEC" >> $PROJECT_DIR/Makefile
+echo -e "## File description:" >> $PROJECT_DIR/Makefile
+echo -e "## Makefile" >> $PROJECT_DIR/Makefile
+echo -e "##" >> $PROJECT_DIR/Makefile
+echo -e "\\nNAME\\t=\\t$EXEC" >> $PROJECT_DIR/Makefile
+echo -e "\\nVERSION\\t=\\t\$(shell cat .version)" >> $PROJECT_DIR/Makefile
+if [[ -z $SOURCE || $SOURCE == '.' || $SOURCE == "./" ]]
+then
+    echo -e "SOURCE_DIR\\t=" >> $PROJECT_DIR/Makefile
+else
+    echo -e "SOURCE_DIR\\t=\\t./$SOURCE/" >> $PROJECT_DIR/Makefile
+fi
+if [[ $(echo $HEADER | wc -w) == 0 ]]
+then
+    echo -e "\\nHEADER\\t=" >> $PROJECT_DIR/Makefile
+else
+    echo -e "\\nHEADER\\t=\\t./$HEADER/" >> $PROJECT_DIR/Makefile
+fi
+echo -e "CFLAGS\\t=\\t$CFLAGS" >> $PROJECT_DIR/Makefile
+echo -e "LDFLAGS\\t=\\t$LDFLAGS" >> $PROJECT_DIR/Makefile
+echo -e "CC\\t=\\t$CC" >> $PROJECT_DIR/Makefile
+echo -e "RM\\t=\\trm -f" >> $PROJECT_DIR/Makefile
+
+#filling SRC:
+
+i=1
+while [ true ]
+do
+    if [[ $i == 1 ]]
+    then
+        echo -e "SRC\\t=\\t$(echo $source | cut -d' ' -f $i)\\t\\" >> $PROJECT_DIR/Makefile
+        if [[ $(echo $source | wc -w) == 1 ]]
+        then
+            break;
+        fi
+    else
+        if [[ -z $(echo $source | cut -d' ' -f $i) ]]
+        then
+            break
+        fi
+        echo -e "\\t\\t$(echo $source | cut -d' ' -f $i)\\t\\" >> $PROJECT_DIR/Makefile
+    fi
+    let "i+=1"
+done
+
+#create dependencies:
+
+echo -e "" >> $PROJECT_DIR/Makefile
+dep=${dep//' '/;}
+o_cp=${dep//".c;"/".o:"}
+echo -e "$EXEC: $(echo $o_cp | tr ' ' '\n' | tr ':' ' ' | awk '{print $1}' | tr '\n' ' ')" >> $PROJECT_DIR/Makefile
+if [[ $(echo $LIBS | wc -w) == 0 ]]
+then
+    echo -e "\\t\\t\$(CC) -o \$@ \$^ \$(LDFLAGS)" >> $PROJECT_DIR/Makefile
+else
+    echo -e "\\t\\t\$(CC) -o \$@ \$^ -L$LIBS \$(LDFLAGS)" >> $PROJECT_DIR/Makefile
+fi
+echo -e "" >> $PROJECT_DIR/Makefile
+i=1
+while [ true ]
+do
+    if [[ -z $(echo $o_cp | awk -v var=$i '{print $var}' | tr ';' ' ') ]]
+    then
+        break
+    else
+        echo -e "$(echo $o_cp | awk -v var=$i '{print $var}' | tr ';' ' ' | sed 's/:/: /g' | sed 's/ / $(HEADER)/g') \$(SOURCE_DIR)$(echo $source | awk -v var=$i '{print $var}')\\n\\t\\t\$(CC) -o \$@ -c \$(SOURCE_DIR)$(echo $source | awk -v var=$i '{print $var}') \$(CFLAGS)\\n" >> $PROJECT_DIR/Makefile
+    fi
+    let "i+=1"
+done
+echo -e "" >> $PROJECT_DIR/Makefile
+
+# main rules:
+
+echo -e "all: \$(NAME)" >> $PROJECT_DIR/Makefile
+echo -e "clean:\\n\\t\$(RM) \$(NAME)\\n\\t\$(RM) *.o\\n\\t\$(RM) *~\\n\\t\$(RM) *#\\n\\t\$(RM) *.gcno" >> $PROJECT_DIR/Makefile
+echo -e "fclean: clean" >> $PROJECT_DIR/Makefile
+echo -e "\\t\$(RM) vgcore.*" >> $PROJECT_DIR/Makefile
+echo -e "re: fclean all" >> $PROJECT_DIR/Makefile
+
+# archive and version handling:
+
+echo -e "archive:\\n\\t@expr \$(VERSION) + 1 > .version\\n\\t@$ZIP $ZIP_FLAGS ./backup/backup_\$(VERSION).tar \$(SRC)" >> $PROJECT_DIR/Makefile
+echo -e "\\t@echo "./backup/backup_"\$(VERSION)".tar file generated."" >> $PROJECT_DIR/Makefile
+echo -e "revert:\\n\\t@expr \$(VERSION) - 1 > .version\\n\\t@$UNZIP $UNZIP_FLAGS ./backup/backup_\$(shell expr \$(VERSION) - 1).tar" >> $PROJECT_DIR/Makefile
+echo -e "num:\\n\\t@echo \$(shell expr \$(VERSION) - 1)" >> $PROJECT_DIR/Makefile
+echo -e "delete:\\n\\t@expr \$(VERSION) - 1 > .version\\n\\t\$(RM) ./backup/backup_\$(shell expr \$(VERSION) - 1).tar\\n" >> $PROJECT_DIR/Makefile
+echo -e "\\n.PHONY: all clean fclean re archive revert num delete" >> $PROJECT_DIR/Makefile
